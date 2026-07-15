@@ -34,7 +34,7 @@ const app = createApp({
     });
 
     const settings = reactive({
-      apiKey: 'REDACTED_API_KEY', 
+      apiKey: '', 
       baseUrl: 'https://zc.wujiong.cn/api',
       model: 'MiniMax-M3', githubToken: ''
     });
@@ -70,7 +70,7 @@ const app = createApp({
       const SETTINGS_VER = 4;
       if (!s.ver || s.ver < SETTINGS_VER) {
         // Force update to new defaults
-        settings.apiKey = 'REDACTED_API_KEY';
+        settings.apiKey = '';
         settings.baseUrl = 'https://zc.wujiong.cn/api';
         settings.model = 'MiniMax-M3';
         saveSettings();
@@ -1041,7 +1041,7 @@ const app = createApp({
         h('div', { class: 'brand' }, [
           h('span', { class: 'brand-mark' }, 'IP'),
           h('span', { class: 'brand-name' }, '知产管家'),
-          h('span', { class: 'brand-tag' }, 'V2.0 (build v26)')
+          h('span', { class: 'brand-tag' }, 'V2.0 build v22')
         ]),
         h('div', { class: 'spacer' }),
         h('div', {

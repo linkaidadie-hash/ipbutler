@@ -2,3 +2,5 @@ node_modules/
 *.log
 .env
 debug-*.jpg
+fonts/NotoSansSC.ttf
+fonts/NotoSansSC.woff2
