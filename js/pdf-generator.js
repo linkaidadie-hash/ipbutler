@@ -13,7 +13,7 @@ const PdfGenerator = (() => {
   async function loadChineseFont() {
     if (_chineseFontBase64) return _chineseFontBase64;
     if (_chineseFontError) return null;
-    var urls = ['/fonts/NotoSansSC-true.ttf', '/fonts/NotoSansSC.ttf'];
+    var urls = ['/fonts/NotoSansSC-true.ttf'];
     var lastErr = null;
     for (var u = 0; u < urls.length; u++) {
       try {

@@ -14,7 +14,7 @@ const sharp = require('sharp');
 
 const PORT = 3210;
 const MINIMAX_API = 'https://api.minimaxi.com';
-const API_KEY = 'REDACTED_API_KEY';
+const API_KEY = process.env.MINIMAX_API_KEY || '';
 const MODEL = 'MiniMax-M3';
 
 // ============ Helpers ============
@@ -430,7 +430,7 @@ const server = http.createServer(async (req, res) => {
       const body = JSON.parse(raw.toString('utf-8'));
       const crypto = require('crypto');
       const hash = crypto.createHash('sha256').update(body.password || '').digest('hex');
-      const expectedHash = 'REDACTED_PASSWORD_HASH';
+      const expectedHash = process.env.LOGIN_PASSWORD_HASH || '';
       if (hash === expectedHash) {
         sendJSON(res, 200, { status: 'ok' });
       } else {
