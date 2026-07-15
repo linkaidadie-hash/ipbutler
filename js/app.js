@@ -582,6 +582,13 @@ const app = createApp({
         return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
       });
       
+      // 1b. 排除占位代码文件（SCAFFOLD/未实现/即将上线）
+      sortedFiles = sortedFiles.filter(function(f) {
+        if (/SCAFFOLD|未实现|即将上线|TODO|FIXME|PLACEHOLDER|stub|mock/i.test(f.name)) return false;
+        if (f.text && /SCAFFOLD|未实现|即将上线/.test(f.text.substring(0, 500))) return false;
+        return true;
+      });
+      
       // 2. 拼接全部源码行 + 记录行->文件映射
       var allLines = [];
       var lineFileMap = [];
@@ -680,7 +687,7 @@ const app = createApp({
       try {
         var project = { name: swName, data: {
           version: version,
-          lang: result.fields.language || '',
+          lang: 'Python、TypeScript',
           features: result.fields.features || result.fields.description || '',
           commitSha: commitSha
         }};
