@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>登录 · 知产管家 IP Butler</title>
+  <link rel="stylesheet" href="css/login.css" />
+</head>
+<body>
+  <div class="login-bg">
+    <div class="login-card">
+      <div class="brand">
+        <span class="brand-mark">IP</span>
+        <h1>知产管家</h1>
+        <p class="tagline">商标 & 软著智能填报助手</p>
+      </div>
+
+      <form id="loginForm" class="login-form" autocomplete="on">
+        <label>
+          <span>访问密码</span>
+          <input id="pw" type="password" placeholder="请输入密码" required autocomplete="current-password" />
+        </label>
+        <button type="submit" class="btn-login">登录</button>
+        <p id="err" class="err"></p>
+      </form>
+
+      <div class="hint">
+        <p class="muted">v2.0 · IP Butler 2026</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Auth via backend API (no hardcoded password)
+    async function login(password) {
+      const resp = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: password })
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        sessionStorage.setItem('zc_auth', '1');
+        sessionStorage.setItem('zc_auth_ts', String(Date.now()));
+        return true;
+      }
+      return false;
+    }
+
+    if (sessionStorage.getItem('zc_auth') === '1') {
+      location.replace('index.html');
+    }
+
+    const form = document.getElementById('loginForm');
+    const pwInput = document.getElementById('pw');
+    const errEl = document.getElementById('err');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const pw = pwInput.value;
+      if (!pw) {
+        errEl.textContent = '请输入密码';
+        return;
+      }
+      errEl.textContent = '验证中…';
+      try {
+        const ok = await login(pw);
+        if (ok) {
+          location.replace('index.html');
+        } else {
+          errEl.textContent = '密码错误';
+          pwInput.select();
+        }
+      } catch (err) {
+        errEl.textContent = '服务器连接失败';
+      }
+    });
+
+    // Session timeout check
+    setInterval(() => {
+      const ts = parseInt(sessionStorage.getItem('zc_auth_ts') || '0', 10);
+      if (ts && Date.now() - ts > 30 * 60 * 1000) {
+        sessionStorage.removeItem('zc_auth');
+        sessionStorage.removeItem('zc_auth_ts');
+        location.replace('login.html');
+      }
+    }, 60000);
+  </script>
+</body>
+</html>
