@@ -1381,7 +1381,7 @@ const app = createApp({
               h('div', { class: 'idea-name' }, idea.name),
               h('div', { class: 'idea-meta' }, [
                 h('span', { class: 'tag tag-primary' }, idea.type || ''),
-                h('span', { class: 'tag', style: 'background:#d1fae5;color:#065f46;margin-left:4px' }, '可注册 ' + (idea.register_score || 0))
+                h('span', { class: 'tag', style: 'background:#d1fae5;color:#065f46;margin-left:4px' }, '显著性 ' + (idea.distinctiveness_score || idea.register_score || 0))
               ]),
               h('div', { class: 'idea-meaning' }, idea.meaning || ''),
               h('div', { class: 'muted', style: 'font-size:12px;margin-top:4px' }, idea.suitable_for || ''),

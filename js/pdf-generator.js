@@ -140,7 +140,7 @@ const PdfGenerator = (() => {
     row('商标类型：', typeMap[data.markType] || data.markType || '-');
     row('商标图样：', '另附（5 份，长和宽不超 10cm×10cm，不少于 5cm×5cm）');
 
-    const img = checkMarkImageDataUrl();
+    const img = checkMarkImageDataUrl(project);
     if (img && (data.markType === '图形' || data.markType === '组合')) {
       try {
         doc.addImage(img, 'PNG', valueX, y - 4, 30, 30);
@@ -435,8 +435,13 @@ const PdfGenerator = (() => {
   // Code pages: unified header + page numbers 1-60 (cover/separator excluded)
   function addCodePages(doc, lines, startPageNum, linesPerPage, headerText, startLineNum) {
     var i = 0, pageNum = startPageNum, lineNum = startLineNum || 1;
+    var isFirst = true;
     while (i < lines.length) {
-      doc.addPage();
+      if (isFirst) {
+        isFirst = false; // use existing first page, no addPage
+      } else {
+        doc.addPage();
+      }
       // Header: software name + version (top left), page number (top right)
       setChineseFont(doc, 'normal', 8); doc.setTextColor(100);
       doc.text(headerText, 20, 10);
@@ -445,16 +450,17 @@ const PdfGenerator = (() => {
       var pageLines = lines.slice(i, i + linesPerPage);
       var y = 20, pageLineNum = lineNum;
       for (var idx = 0; idx < pageLines.length; idx++) {
+        if (y > 280) break;
         doc.setTextColor(150); setChineseFont(doc, 'normal', 8);
         doc.text(String(pageLineNum).padStart(5, ' '), 20, y);
         doc.setTextColor(0);
         var ln = pageLines[idx] || ' ';
-        var fs = 9; if (ln.length > 90) fs = 7; if (ln.length > 120) fs = 6;
+        // Truncate long lines instead of wrapping to keep line numbering correct
+        var maxChars = 120;
+        if (ln.length > maxChars) ln = ln.substring(0, maxChars);
+        var fs = 9; if (ln.length > 80) fs = 7; if (ln.length > 100) fs = 6;
         setChineseFont(doc, 'normal', fs);
-        if (ln.length > 90) {
-          var wr = ln.replace(/(.{70,}?[,;\s])/g, '$1\n').split('\n');
-          for (var wi = 0; wi < wr.length; wi++) { if (y > 280) break; doc.text(wr[wi] || ' ', 30, y); y += fs * 0.5 + 1; }
-        } else { doc.text(ln, 30, y); }
+        doc.text(ln, 30, y);
         y += 5; pageLineNum++;
       }
       setChineseFont(doc, 'normal', 8); doc.setTextColor(150);
