@@ -84,6 +84,52 @@
   })();
   </script>
 
+  <!-- API Key 配置入口 -->
+  <div id="apiKeyModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:12px;padding:24px;width:90%;max-width:440px">
+      <h3 style="margin:0 0 12px;font-size:16px">MiniMax API Key 配置</h3>
+      <p style="font-size:12px;color:#666;margin:0 0 12px">Key 存储在服务端 config.json，仅此处可修改</p>
+      <input id="apiKeyInput" type="password" placeholder="sk-..." style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box" />
+      <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="document.getElementById('apiKeyModal').style.display='none'" style="padding:6px 16px;border:1px solid #ddd;border-radius:6px;cursor:pointer;background:#f5f5f5">取消</button>
+        <button id="saveApiKeyBtn" style="padding:6px 16px;border:none;border-radius:6px;cursor:pointer;background:#4f46e5;color:#fff">保存</button>
+      </div>
+      <p id="apiKeyStatus" style="font-size:12px;margin-top:8px"></p>
+    </div>
+  </div>
+  <script>
+  (function(){
+    // 添加设置按钮到页面
+    var btn=document.createElement('button');
+    btn.textContent='⚙';
+    btn.style.cssText='position:fixed;bottom:12px;right:12px;z-index:9998;width:36px;height:36px;border-radius:50%;border:none;background:#4f46e5;color:#fff;font-size:16px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2)';
+    btn.onclick=async function(){
+      var modal=document.getElementById('apiKeyModal');
+      modal.style.display='flex';
+      var input=document.getElementById('apiKeyInput');
+      var status=document.getElementById('apiKeyStatus');
+      status.textContent='检查中…';
+      try{
+        var r=await fetch('/api/config/api-key',{credentials:'include'});
+        var d=await r.json();
+        status.textContent=d.hasKey?'当前已配置 Key':'未配置';
+        input.value='';
+      }catch(e){status.textContent='连接失败';}
+    };
+    document.body.appendChild(btn);
+    document.getElementById('saveApiKeyBtn').onclick=async function(){
+      var key=document.getElementById('apiKeyInput').value.trim();
+      if(!key){document.getElementById('apiKeyStatus').textContent='请输入 Key';return;}
+      try{
+        var r=await fetch('/api/config/api-key',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({api_key:key})});
+        var d=await r.json();
+        if(d.status==='ok'){document.getElementById('apiKeyStatus').textContent='✅ 保存成功';setTimeout(function(){document.getElementById('apiKeyModal').style.display='none';},1000);}
+        else{document.getElementById('apiKeyStatus').textContent='保存失败: '+d.message;}
+      }catch(e){document.getElementById('apiKeyStatus').textContent='连接失败';}
+    };
+  })();
+  </script>
+
   <!-- 依赖（CDN） -->
   <script src="https://cdn.jsdelivr.net/npm/vue@3.4.0/dist/vue.global.prod.js" integrity="sha384-xivezcHTLn8ZURcEJQ/odnHkFWiOcnxHS8wNwls4xv0RZ+dSzIjp//XKDplVo2Al" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/dexie@3.2.7/dist/dexie.min.js" integrity="sha384-xjSPK8bO31pDhkpw5rRr8sQK5LNFmrzeqlovh+Axij06GXGqDBNrgUZsli9dBqHi" crossorigin="anonymous"></script>
@@ -91,12 +137,12 @@
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.4/dist/tesseract.min.js"></script>
 
   <!-- 业务模块 -->
-  <script src="js/nice-classes.js?v=32"></script>
-  <script src="js/pdf-generator.js?v=32"></script>
-  <script src="js/ai-extract.js?v=32"></script>
-  <script src="js/ai-image.js?v=32"></script>
-  <script src="js/high-tech.js?v=32"></script>
-  <script src="js/ht-ledger.js?v=32"></script>
-  <script src="js/app.js?v=32"></script>
+  <script src="js/nice-classes.js?v=35"></script>
+  <script src="js/pdf-generator.js?v=35"></script>
+  <script src="js/ai-extract.js?v=35"></script>
+  <script src="js/ai-image.js?v=35"></script>
+  <script src="js/high-tech.js?v=35"></script>
+  <script src="js/ht-ledger.js?v=35"></script>
+  <script src="js/app.js?v=35"></script>
 </body>
 </html>

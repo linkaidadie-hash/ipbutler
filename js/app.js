@@ -1,9 +1,10 @@
 /**
  * 知产管家 - 主应用 v2.0
- * 智能填报：图片 OCR + GitHub + 源码 + 文字 → AI 自动提取
+ * 智能填报：图片 OCR + GitHub + 源码 + 文字 -> AI 自动提取
  * 商标：AI 起名 + 风险评估 + 自动选类 + 自动勾选类似群组
+ * 桌面版：Electron 封装，支持本地源码目录选择、PDF 保存
  */
-const { createApp, ref, reactive, onMounted } = Vue;
+const isDesktop = typeof window !== "undefined" && window.desktopAPI && window.desktopAPI.isDesktop;
 
 const app = createApp({
   setup() {
@@ -35,7 +36,7 @@ const app = createApp({
 
     const settings = reactive({
       apiKey: '', 
-      baseUrl: 'https://zc.wujiong.cn/api',
+      baseUrl: 'https://api.minimaxi.com/v1',
       model: 'MiniMax-M3', githubToken: ''
     });
 
@@ -71,7 +72,7 @@ const app = createApp({
       if (!s.ver || s.ver < SETTINGS_VER) {
         // Force update to new defaults
         settings.apiKey = '';
-        settings.baseUrl = 'https://zc.wujiong.cn/api';
+        settings.baseUrl = 'https://api.minimaxi.com/v1';
         settings.model = 'MiniMax-M3';
         saveSettings();
       } else {
@@ -368,6 +369,27 @@ const app = createApp({
     }
 
     async function handleSourceFolder(e) {
+      if (isDesktop) {
+        // 桌面版：通过 IPC 选择目录并读取
+        const dirPath = await window.desktopAPI.selectSourceDir();
+        if (!dirPath) return;
+        loading.value = true;
+        loadingMsg.value = '正在读取源码文件...';
+        try {
+          const res = await window.desktopAPI.readSourceFiles(dirPath);
+          if (!res || !res.files) return;
+          // 转换为前端统一格式
+          inputs.sourceFiles = res.files.map(f => ({ name: f.name, lines: f.lines, text: f.text, size: f.size }));
+          inputs.sourceTotalLines = res.totalLines;
+          if (window.__showToast) window.__showToast(`已读取 ${res.fileCount} 个文件，${res.totalLines} 行`, 'success');
+        } catch (err) {
+          if (window.__showToast) window.__showToast('读取失败：' + err.message, 'error');
+        } finally {
+          loading.value = false;
+        }
+        return;
+      }
+      // 网页版：通过 input[webkitdirectory] 选择
       const files = e.target.files ? Array.from(e.target.files) : [];
       if (files.length === 0) return;
       loading.value = true;
@@ -377,8 +399,8 @@ const app = createApp({
         inputs.sourceFiles = res.files;
         inputs.sourceTotalLines = res.totalLines;
         if (window.__showToast) window.__showToast(`已读取 ${res.files.length} 个文件，${res.totalLines} 行`, 'success');
-      } catch (e) {
-        if (window.__showToast) window.__showToast('读取失败：' + e.message, 'error');
+      } catch (err) {
+        if (window.__showToast) window.__showToast('读取失败：' + err.message, 'error');
       } finally {
         loading.value = false;
       }
@@ -467,7 +489,7 @@ const app = createApp({
         } else {
           result.fields.softwareName = extracted.softwareName || '';
           result.fields.abbreviation = extracted.abbreviation || '';
-          result.fields.version = extracted.version || '1.0.0';
+          result.fields.version = extracted.version || '0.1';
           result.fields.completionDate = extracted.completionDate || new Date().toISOString().slice(0, 10);
           result.fields.firstPublishDate = extracted.firstPublishDate || '';
           result.fields.publishStatus = extracted.publishStatus || '未发表';
@@ -547,7 +569,7 @@ const app = createApp({
     async function previewSoftwareApplication() {
       if (!result.applicant.name) { if (window.__showToast) window.__showToast('请填写申请人信息', 'error'); return; }
       var swName = result.fields.softwareName || '';
-      var version = result.fields.version || '1.0';
+      var version = (result.fields.version || '0.1').replace(/^V/i, '').trim();
       if (/V?\d+(\.\d+)*$/i.test(swName)) { swName = swName.replace(/\s*V?\d+(\.\d+)*$/i, '').trim(); }
       if (!swName) { if (window.__showToast) window.__showToast('请填写软件全称', 'error'); return; }
       
@@ -637,7 +659,7 @@ const app = createApp({
       var commitSha = (inputs.githubData && inputs.githubData.commitSha) || '';
       
       var swName = result.fields.softwareName || '软件';
-      var version = result.fields.version || '1.0';
+      var version = (result.fields.version || '0.1').replace(/^V/i, '').trim();
       if (/V?\d+(\.\d+)*$/i.test(swName)) { swName = swName.replace(/\s*V?\d+(\.\d+)*$/i, '').trim(); }
       
       loading.value = true; loadingMsg.value = '正在生成源程序材料（' + adoptedLines + '行，约' + estPages + '页）...';
@@ -680,14 +702,14 @@ const app = createApp({
     
     async function generateUserManualPdf() {
       var swName = result.fields.softwareName || '软件';
-      var version = result.fields.version || '1.0';
+      var version = (result.fields.version || '0.1').replace(/^V/i, '').trim();
       if (/V?\d+(\.\d+)*$/i.test(swName)) { swName = swName.replace(/\s*V?\d+(\.\d+)*$/i, '').trim(); }
       var commitSha = (inputs.githubData && inputs.githubData.commitSha) || '';
       loading.value = true; loadingMsg.value = '正在生成用户操作说明书...';
       try {
         var project = { name: swName, data: {
           version: version,
-          lang: 'Python、TypeScript',
+          lang: 'TypeScript、JavaScript',
           features: result.fields.features || result.fields.description || '',
           commitSha: commitSha
         }};
@@ -923,7 +945,7 @@ const app = createApp({
           ]),
           h('div', { class: 'result-card' }, [
             h('div', { class: 'label' }, '版本号'),
-            h('input', { value: result.fields.version || '1.0.0', onInput: (e) => { result.fields.version = e.target.value; } })
+            h('input', { value: result.fields.version || '0.1', onInput: (e) => { result.fields.version = e.target.value; } })
           ])
         ]),
         h('div', { class: 'field-row' }, [

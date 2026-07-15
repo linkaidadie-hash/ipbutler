@@ -16,7 +16,19 @@ const sharp = require('sharp');
 
 const PORT = 3210;
 const MINIMAX_API = 'https://api.minimaxi.com';
-const API_KEY = process.env.MINIMAX_API_KEY || '';
+const fs = require('fs');
+const path = require('path');
+
+// Read API key from config.json first, fallback to env var
+function loadApiKey() {
+  try {
+    const cfg = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf-8'));
+    return cfg.minimax_api_key || process.env.MINIMAX_API_KEY || '';
+  } catch (e) {
+    return process.env.MINIMAX_API_KEY || '';
+  }
+}
+let API_KEY = loadApiKey();
 const MODEL = 'MiniMax-M3';
 const ALLOWED_ORIGIN = 'https://zc.wujiong.cn';
 
@@ -512,6 +524,24 @@ const server = http.createServer(async (req, res) => {
       sendJSON(res, 500, { error: 'INTERNAL_ERROR', message: e.message });
     }
     return;
+  }
+
+  // Config: get/set API key (requires login)
+  if (url.pathname === '/api/config/api-key' && req.method === 'GET') {
+    return sendJSON(res, 200, { hasKey: !!API_KEY });
+  }
+  if (url.pathname === '/api/config/api-key' && req.method === 'POST') {
+    try {
+      const raw = await readBody(req, 1024 * 1024);
+      const body = JSON.parse(raw.toString('utf-8'));
+      const cfg = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf-8'));
+      cfg.minimax_api_key = body.api_key || '';
+      fs.writeFileSync(path.join(__dirname, 'config.json'), JSON.stringify(cfg, null, 2));
+      API_KEY = cfg.minimax_api_key;
+      return sendJSON(res, 200, { status: 'ok', hasKey: !!API_KEY });
+    } catch (e) {
+      return sendJSON(res, 500, { error: 'INTERNAL_ERROR', message: e.message });
+    }
   }
 
   sendJSON(res, 404, { error: 'NOT_FOUND', message: `路径 ${url.pathname} 不存在` });

@@ -4,3 +4,6 @@ node_modules/
 debug-*.jpg
 fonts/NotoSansSC.ttf
 fonts/NotoSansSC.woff2
+config.json
+dist/
+screenshots/

@@ -251,7 +251,7 @@ const PdfGenerator = (() => {
     const data = project.data || {};
     doc.setFontSize(10);
     row('软件全称：', project.name);
-    row2('软件简称：', data.abbr || '-', '版本号：', data.version ? 'V' + data.version : '-');
+    row2('软件简称：', data.abbr || '-', '版本号：', data.version ? 'V' + String(data.version).replace(/^V/i, '').trim() : '-');
     row2('开发完成日期：', data.completionDate || '-', '首次发表日期：', data.publishDate || '未发表');
     row2('发表状态：', data.publishStatus || '未发表', '开发语言：', data.lang || '-');
     row2('代码行数：', data.lines ? data.lines + ' 行' : '-', '', '');
@@ -357,14 +357,17 @@ const PdfGenerator = (() => {
     const backText = project.data.sourceCodeBackText || '';
     const meta = project.data.sourceMeta || {};
     const linesPerPage = settings.linesPerPage || 50;
-    const headerText = (project.name || '软件') + ' V' + (project.data.version || '1.0');
+    // 版本字段只存 0.1，PDF 展示时只加一次 V
+    var rawVer = project.data.version || '0.1';
+    rawVer = rawVer.replace(/^V/i, '').trim();
+    const headerText = (project.name || '软件') + ' V' + rawVer;
 
     const frontLines = frontText.split(/\r?\n/);
     const backLines = backText ? backText.split(/\r?\n/) : [];
     const totalLines = meta.totalLines || frontLines.length + backLines.length;
     const adoptedLines = meta.adoptedLines || frontLines.length + backLines.length;
 
-    // No cover page, no separator - directly output 60 code pages (1-60)
+    // 严格 60 页：前 30 页 + 后 30 页，每页 50 行
     var pageNum = 1;
     addCodePages(doc, frontLines, pageNum, linesPerPage, headerText, 1);
     pageNum += Math.ceil(frontLines.length / linesPerPage);
@@ -386,7 +389,7 @@ const PdfGenerator = (() => {
     setChineseFont(doc, 'bold', 11); doc.text('软件全称：', labelX, y);
     setChineseFont(doc, 'normal', 11); doc.text(project.name, valueX, y); y += 8;
     setChineseFont(doc, 'bold', 11); doc.text('版本号：', labelX, y);
-    setChineseFont(doc, 'normal', 11); doc.text('V' + (project.data.version || '1.0'), valueX, y); y += 8;
+    setChineseFont(doc, 'normal', 11); doc.text('V' + (project.data.version || '0.1').replace(/^V/i, '').trim(), valueX, y); y += 8;
     setChineseFont(doc, 'bold', 11); doc.text('著作权人：', labelX, y);
     setChineseFont(doc, 'normal', 11); doc.text(applicant.name, valueX, y); y += 8;
     setChineseFont(doc, 'bold', 11); doc.text('代码总行数：', labelX, y);
@@ -438,11 +441,10 @@ const PdfGenerator = (() => {
     var isFirst = true;
     while (i < lines.length) {
       if (isFirst) {
-        isFirst = false; // use existing first page, no addPage
+        isFirst = false;
       } else {
         doc.addPage();
       }
-      // Header: software name + version (top left), page number (top right)
       setChineseFont(doc, 'normal', 8); doc.setTextColor(100);
       doc.text(headerText, 20, 10);
       doc.text(String(pageNum), 190, 10, { align: 'right' });
@@ -455,12 +457,23 @@ const PdfGenerator = (() => {
         doc.text(String(pageLineNum).padStart(5, ' '), 20, y);
         doc.setTextColor(0);
         var ln = pageLines[idx] || ' ';
-        // Truncate long lines instead of wrapping to keep line numbering correct
-        var maxChars = 120;
-        if (ln.length > maxChars) ln = ln.substring(0, maxChars);
-        var fs = 9; if (ln.length > 80) fs = 7; if (ln.length > 100) fs = 6;
+        // 长行不丢失字符：用 splitTextToSize 按宽应自动换行
+        // 但行号只记原始行号，换行子行不额外增行号
+        var fs = 9;
+        if (ln.length > 80) fs = 7;
+        if (ln.length > 110) fs = 6;
         setChineseFont(doc, 'normal', fs);
-        doc.text(ln, 30, y);
+        if (ln.length > 100) {
+          // 用 jsPDF splitTextToSize 自动折行，不截断
+          var wrapped = doc.splitTextToSize(ln, 175);
+          for (var wi = 0; wi < wrapped.length; wi++) {
+            if (y > 280) break;
+            doc.text(wrapped[wi], 30, y);
+            y += fs * 0.55 + 0.5;
+          }
+        } else {
+          doc.text(ln, 30, y);
+        }
         y += 5; pageLineNum++;
       }
       setChineseFont(doc, 'normal', 8); doc.setTextColor(150);
@@ -478,7 +491,7 @@ const PdfGenerator = (() => {
     applyChineseFont(doc);
     var data = project.data || {};
     var swName = project.name || '软件';
-    var ver = 'V' + (data.version || '1.0');
+    var ver = 'V' + (data.version || '0.1').replace(/^V/i, '').trim();
     var commitSha = data.commitSha || '';
     var page = 1;
 
@@ -516,10 +529,11 @@ const PdfGenerator = (() => {
     function screenshot(label, y) {
       if (y > 230) { newPage(); header(); y = 20; }
       y += 4;
-      doc.setDrawColor(150); doc.setLineWidth(0.3);
-      doc.setFillColor(245, 247, 250); doc.roundedRect(25, y, 155, 50, 2, 2, 'FD');
-      setChineseFont(doc, 'normal', 9); doc.setTextColor(120);
-      doc.text('【截图位置】' + label, 102, y + 28, { align: 'center' });
+      // 预留截图位置：桌面版完成后插入真实截图
+      doc.setDrawColor(200); doc.setLineWidth(0.2);
+      doc.setFillColor(250, 250, 250); doc.roundedRect(25, y, 155, 50, 2, 2, 'FD');
+      setChineseFont(doc, 'normal', 8); doc.setTextColor(180);
+      doc.text('[待插入截图] ' + label, 102, y + 28, { align: 'center' });
       doc.setTextColor(0); y += 56;
       return y;
     }
@@ -539,7 +553,7 @@ const PdfGenerator = (() => {
     coverRow('软件全称：', swName);
     coverRow('版本号：', ver);
     coverRow('著作权人：', applicant.name);
-    coverRow('开发语言：', 'Python、TypeScript');
+    coverRow('开发语言：', 'TypeScript、JavaScript');
     coverRow('运行平台：', '1688.com (Alibaba Wholesale)');
     if (commitSha) coverRow('版本标识：', 'commit ' + commitSha);
     cy += 10;
@@ -574,7 +588,7 @@ const PdfGenerator = (() => {
 
     // ===== 第一章 软件概述 =====
     var y = h1('第一章  软件概述');
-    y = p(swName + '是一款面向1688平台的智能商品运营系统，基于Python后端（FastAPI）和TypeScript前端（Vue 3）构建。系统通过AI能力辅助商家完成商品发布、图片处理、竞品分析、库存管理等核心运营环节，提升运营效率。', y + 5);
+    y = p(swName + '是一款面向1688平台的智能商品运营系统，基于React + TypeScript 前端（Vite + Ant Design）和 Node.js 后端构建。系统通过AI能力辅助商家完成商品发布、图片处理、竞品分析、库存管理等核心运营环节，提升运营效率。', y + 5);
     y = h2('1.1 核心能力', y);
     y = steps([
       '商品管理：批量导入、编辑、发布1688商品，支持类目匹配和属性自动填充',
@@ -585,17 +599,15 @@ const PdfGenerator = (() => {
       '草稿发布：商品草稿集中管理，一键发布到1688平台'
     ], y);
     y = h2('1.2 技术架构', y);
-    y = p('后端采用Python 3.11 + FastAPI框架，提供RESTful API。前端采用Vue 3 + TypeScript + Ant Design Vue。数据库使用PostgreSQL，图片处理集成Pillow和AI视觉模型。系统通过1688开放API与平台交互。', y);
+    y = p('后端采用Node.js + Express框架，提供RESTful API。前端采用React 18 + TypeScript + Vite + Ant Design。数据库使用PostgreSQL，图片处理集成Sharp和AI视觉模型。系统通过1688开放API与平台交互。', y);
 
     // ===== 第二章 运行环境 =====
     y = h1('第二章  运行环境');
     y = h2('2.1 服务器端要求', y);
     y = steps([
       '操作系统：Ubuntu 22.04 LTS 或 CentOS 8+',
-      'Python：3.11 或以上',
-      'Node.js：18 LTS 或以上（前端构建）',
+      'Node.js：18 LTS 或以上',
       'PostgreSQL：15 或以上',
-      'Redis：7.0 或以上（缓存和任务队列）',
       'Docker：24.0+（推荐容器化部署）'
     ], y);
     y = h2('2.2 客户端要求', y);
@@ -613,14 +625,14 @@ const PdfGenerator = (() => {
     y = steps([
       '步骤1：拉取镜像  docker pull registry.cn-hangzhou.aliyuncs.com/ops1688/backend:latest',
       '步骤2：配置环境变量  复制 .env.example 为 .env，填写1688 AppKey/AppSecret、数据库连接、AI模型密钥',
-      '步骤3：启动服务  docker-compose up -d，系统将启动后端(API)、前端(Nginx)、数据库(PostgreSQL)、缓存(Redis)四个容器',
+      '步骤3：启动服务  docker-compose up -d，系统将启动后端(API)、前端(Nginx)、数据库(PostgreSQL)、缓存(Redis)三个容器',
       '步骤4：初始化数据库  docker exec -it backend python -m alembic upgrade head',
       '步骤5：创建管理员  docker exec -it backend python -m ops.cli create-admin --username admin --password <密码>',
       '步骤6：验证  浏览器访问 http://<服务器IP>:18001，显示登录页即部署成功'
     ], y);
     y = screenshot('部署完成后浏览器访问的登录页面', y);
     y = h2('3.2 手动部署', y);
-    y = p('如不使用Docker，需手动安装Python依赖（pip install -r requirements.txt）、构建前端（npm run build）、配置Nginx反向代理。详细步骤参考项目README中的手动部署章节。', y);
+    y = p('如不使用Docker，需手动安装npm依赖（npm install）、构建前端（npm run build）、配置Nginx反向代理。详细步骤参考项目README中的手动部署章节。', y);
 
     // ===== 第四章 登录系统 =====
     y = h1('第四章  登录系统');
@@ -820,7 +832,16 @@ const PdfGenerator = (() => {
     generateSourceCodeDocument,
     generateUserManual,
     setMarkImage,
-    savePdf(doc, filename) { doc.save(filename); },
+    savePdf(doc, filename) {
+      if (typeof isDesktop !== 'undefined' && isDesktop && window.desktopAPI) {
+        // 桌面版：通过 IPC 保存
+        const base64 = doc.output('base64');
+        window.desktopAPI.savePdf(base64, filename);
+      } else {
+        // 网页版：浏览器下载
+        doc.save(filename);
+      }
+    },
     outputPdf(doc, filename) {
       const blob = doc.output('blob');
       const url = URL.createObjectURL(blob);
